@@ -45,38 +45,30 @@ public class SemiPistol : Weapon {
 	void Update () {
 
 
-				//transform.localRotation.eulerAngles.Set (rotation3.x,rotation3.y,rotation3.z+currRecoil*5.0f);
-				//GetComponentInParent<Camera>().transform.localRotation.eulerAngles.Set (position3.x-currRecoil*currRecoil,position3.y,position3.z);
-				//transform.localPosition = position3;
-
-				handlePositionRecoilAndMuzzleFlash ();
+		handlePositionRecoilAndMuzzleFlash ();
 				
-				if (stillReloading ())
-						return;
-				//else if (bulletsThisFrame == -1) 
-				//		bulletsThisFrame = 0;
+		if (stillReloading ())
+				return;
+		//else if (bulletsThisFrame == -1) 
+		//		bulletsThisFrame = 0;
 
-				shooting = isShooting ();
+		shooting = isShooting ();
 
-				if (shooting) 
-					// Find out how many we need to shoot this time
-					Weapon.bulletsThisFrame += fireRate * Time.deltaTime;
-				if (loadedRounds > 0) {
-					handleFiring();
-				} else if (reserveRounds > 0 && !(isSetAndPlaying (fireSound))) {
-					reload ();
+		if (shooting) 
+			// Find out how many we need to shoot this time
+			Weapon.bulletsThisFrame += fireRate * Time.deltaTime;
+		if (loadedRounds > 0) {
+			handleFiring();
+		} else if (reserveRounds > 0 && !(isSetAndPlaying (fireSound))) {
+			reload ();
 						
-				} else if (shooting) {
-					handleDryFiring();
+		} else if (shooting) {
+			handleDryFiring();
 					
-			//TODO this is where they get unlimited ammo
-					
-					
+		}
 
-				}
-
-			if (loadedRounds == 0 && reserveRounds == 0) 
-				reserveRounds += 10;
+	    if (loadedRounds == 0 && reserveRounds == 0) 
+		    reserveRounds += 10;
 			
 
 

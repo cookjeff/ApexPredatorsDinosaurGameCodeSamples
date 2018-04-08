@@ -58,6 +58,7 @@ public abstract class Dinosaur : MonoBehaviour {
 	protected float timeSinceAStar = 0f;
 	protected float aStarCooldown = 1f;
 	protected SkinnedMeshRenderer smr;
+    // States for the finite state machine
 	public enum FSMState { FSM_DEAD, FSM_FLEE, FSM_ATTACK, FSM_FEED, FSM_CHASE, FSM_HUNT, FSM_COORDINATE, FSM_PASSTIME };
 	protected GameObject thePlayer;
 	public float updateDistanceThreshold = 333;
@@ -70,16 +71,18 @@ public abstract class Dinosaur : MonoBehaviour {
 	//protected abstract void Start ();
 	//public astarpathfind pathFinder;
 
+    // Get the rest of the nearby dinosaurs of the same species
 	public abstract ArrayList getPack();
 	
+
     public static void ResetDinoObjectivesOnRespawn()
     {
         foreach (Dinosaur d in allDinos)
         {
-            //if (d.state == FSMState.FSM_ATTACK || d.state == FSMState.FSM_CHASE)
-            //{
-                d.state = FSMState.FSM_PASSTIME;
-            //}
+            
+            // Set each dinosaur to idling
+            d.state = FSMState.FSM_PASSTIME;
+            
             
         }
     }
@@ -87,20 +90,18 @@ public abstract class Dinosaur : MonoBehaviour {
 	public void Awake() {
 		if (allDinos==null)
 			allDinos = new List<Dinosaur>();
-
+        // Account for the dinosaur and get it ready to interact with player
 		allDinos.Add (this);
-		//pathFinder = new astarpathfind();
-		//Physics.IgnoreLayerCollision(8,9,true);
-		//Physics.IgnoreCollision(GetComponent<Collider>(),Terrain.activeTerrain.GetComponent<Collider>());
-		//GetComponent<Rigidbody>().isKinematic = true;
 		smr = GetComponentInChildren<SkinnedMeshRenderer> ();
 		thePlayer = GameObject.FindGameObjectWithTag ("Player");
 	}
 
+    // Make a flat/2D vector of the dinosaur's position
 	public Vector3 planarPoint(Vector3 p) {
 		return new Vector3 (p.x, 0f, p.z);
-		}
+	}
 
+    // Toggle visibility on and off to avoid animating dinosaurs not being seen
 	public void OnBecameVisible() {
 		//print ("just became visible");
 		bVisible = true;
@@ -110,20 +111,22 @@ public abstract class Dinosaur : MonoBehaviour {
 		bVisible = false;
 	}
 
+    // Get the 2D distance between 2 points
 	float planarDistance(Vector3 a, Vector3 b) {
 		return (((new Vector2 (a.x, a.z)) - (new Vector2 (b.x, b.z))).magnitude);
 	}
 
+    // Helper function to normalize vector
 	public Vector3 normVector(Vector3 source) {
 		source.Normalize();
 		return source;
-
 	}
 
+    // Look toward the player
 	public virtual void lookToward(Vector3 target) {
 
 		// TODO see if using nonplanar normalized vector subtraction fixes quaternion error
-		//Quaternion.LookRotation(target);
+		// Rotate model if its backwards, otherwise point it toward its target
 		if (backwardsModel) {
 						targetAngle = Quaternion.LookRotation (normVector(planarPoint(transform.position) - planarPoint(target)));
 				} else {
@@ -131,19 +134,22 @@ public abstract class Dinosaur : MonoBehaviour {
 				}
 
 	
-		//backwardsFixed = false;
-		//if (backwardsModel)
-		//		targetAngle.y += 180f;
-		//transform.LookAt(new Vector3(target.x,transform.position.y,target.z));
-		//targetAngle = Quaternion.LookRotation (target - transform.position);
-		
 	}
+    
+    // Get the distance to the player
 	protected float playerDistance() {
 		return (thePlayer.transform.position - transform.position).magnitude;
 	}
+
+    // Steering toward the player and move toward them
 	protected void moveToward(Vector3 point, float requestedSpeed, AudioClip movementSound) {
+
+        // Face them
 		lookToward (point);
+        // Determine speed
 		float speed = requestedSpeed;
+
+        // Play the proper sound and proper animation
 		if (GetComponent<AudioSource>().clip!=movementSound)
 			GetComponent<AudioSource>().clip = movementSound;
 		if (GetComponent<AudioSource>().isPlaying==false)
@@ -158,32 +164,21 @@ public abstract class Dinosaur : MonoBehaviour {
 			}
 
 
+        // Compute a point to move to proportional to their movement speed and the time its taking
 		Vector3 angleVelocity = new Vector3 (0f, 1f, 0f);
 		Vector3 destination = (point - transform.position);
 		destination.Normalize();
 		destination.Scale(new Vector3(Time.deltaTime * speed,Time.deltaTime * runSpeed,Time.deltaTime * speed));
-		//destination.Scale (new Vector3(runSpeed,runSpeed,runSpeed));
-		//destination.Normalize();
 
-		//Quaternion deltaRotation = Quaternion.Euler (angleVelocity * Time.deltaTime);
-
+        // Move the dinosaur toward the player and rotate them if they're close enough to be seen
 		GetComponent<Rigidbody>().MovePosition (transform.position + destination);//.AddRelativeForce(Vector3.forward * GetComponent<Rigidbody>().mass*5*Time.deltaTime);
 		if (bVisible && (thePlayer.transform.position - transform.position).magnitude < 400) {
-			//if (backwardsModel) 
-			//		transform.Rotate (0f, -180f, 0f);
-			//transform.rotation = currAngle;
-			//if (backwardsModel) 
-			//
 			GetComponent<Rigidbody> ().MoveRotation (currAngle);
-			//if (backwardsModel) 
-			//	transform.Rotate (0f, 180f, 0f);
 		}
 	}
-	
-	protected void followPath(List<astarpathfind.Node> path) {
-	
-	}
-
+    
+    // If they're in the chase state and are close to the player, move to attack and handle updating
+    // the path they're following
 	protected virtual void updateChaseState() {
 		
 		//transform.LookAt(((astarpathfind.Node)path[pathIndex]).position);
@@ -255,25 +250,21 @@ public abstract class Dinosaur : MonoBehaviour {
 		
 	}
 	
+    // Attack and if the player moves out of range, switch to chase state after finishing attack animation
 	protected virtual void updateAttackState() {
-		//TODO make sure to deal with if it's chasing an animal or player
 		lookToward (focusCreature.transform.position);
 		GetComponent<Rigidbody> ().MoveRotation (currAngle);
 		if ((transform.position - focusCreature.transform.position).magnitude < attackDistance) {
-			//if (movesWhileAttacking)
-			//	moveToward(focusCreature.transform.position,walkSpeed,GetComponent<AudioSource>().clip);
 			GetComponent<Animation>().Play (attackAnimation);
 		} else if (!GetComponent<Animation>().IsPlaying (attackAnimation)) {
 			moveToward (focusCreature.transform.position,runSpeed,footstepRun);
 			if ((transform.position - focusCreature.transform.position).magnitude > attackDistance)
 				state = FSMState.FSM_CHASE;
-			//path=new List<astarpathfind.Node>();
-			//path.Add (new astarpathfind.Node(focusCreature.transform.position));
-			//pathIndex = 0;
 		}
 		
 	}
 	
+    // Update the escape state by following an escape path and finding a new path if needed
 	protected virtual void updateFleeState() {
 
 		if (path!= null && !newPath && pathIndex < path.Count) {
@@ -319,9 +310,6 @@ public abstract class Dinosaur : MonoBehaviour {
 		
 		if (currTaskTimer < 0.0f) {
 			objective = GrazingArea.getCloset(transform.position).getWanderPoint();
-			//while (Vector3.Distance(objective,transform.position) < 15.0f) 
-			//	objective = GrazingArea.getCloset(transform.position).getWanderPoint();
-			
 			objective.y = Terrain.activeTerrain.SampleHeight(objective);
 			lookToward(objective);
 			Debug.DrawLine(objective,objective+Vector3.up*20.0f);
@@ -335,8 +323,8 @@ public abstract class Dinosaur : MonoBehaviour {
 					GetComponent<Animation>().Play ("idle");
 			}
 		}
-		////////
-		// TODO this might f it up
+
+
 		if (eyes == null) {
 			//eyes = new Vector3(transform.position.x,transform.position.y+1f,transform.position.z);
 			objective = GrazingArea.getCloset (transform.position).getWanderPoint ();
@@ -410,19 +398,7 @@ public abstract class Dinosaur : MonoBehaviour {
 
 	}
 
-	public void OnDrawGizmos() {
-		//if (path != null)
-						
-		//foreach (astarpathfind.Node spot in path)
-		//	Gizmos.DrawCube (spot.position,new Vector3(1f,1f,1f));
-		//if (objective!=null)
-		//	Gizmos.DrawCube (objective,new Vector3(5f,5f,5f));
-
-        //if (astarpathfind.GridManager.nodes == null)
-        //    return;
-
-	}
-
+    // Get nearby dinosaurs of the same species to attack this dinosaur's target
 	protected virtual void rallyHelp(GameObject target, float range) {
 		foreach (Dinosaur dino in getPack ()) {
 			if (Vector3.Distance(transform.position,dino.transform.position) < range) {
@@ -478,131 +454,99 @@ public abstract class Dinosaur : MonoBehaviour {
 	}
 
 	protected void Start() {
+        // Set that it's not dead and set it's damage actuator
 		bDead = false;
 		if (inflictsDamage)
 			damageAct = GetComponentInChildren<DamageActuator> ();
-
-        /*
-		eyeball = GameObject.FindWithTag("eyeball");
-		eyeballs = GameObject.FindGameObjectsWithTag ("eyeball");
-
-		print ("here!");
-		print (eyeballs.Length);
-
-		if (eyeballs == null || eyeballs.Length == 0)
-			return;
-
-		eyeball = eyeballs [0];
-		for (int i = 0; i < eyeballs.Length; i++) {
-			if (Vector3.Distance(transform.position,eyeballs[i].transform.position) < Vector3.Distance(transform.position,eyeball.transform.position))
-			    eyeball = eyeballs[i];
-		}
-
-		if (Vector3.Distance (eyeball.transform.position, this.transform.position) > 3f)
-			eyeball = null;
-
-		//eyeball = (transform.FindChild ("eyeball"));
-		//if (eyeball != null) 
-			*/
 	}
 
 	// Update is called once per frame
 	public virtual void FixedUpdate () {
-			if (inflictsDamage)
-				damageAct.enabled = (state == FSMState.FSM_ATTACK);
 
-			if (playerDistance () > updateDistanceThreshold) {
-					GetComponent<Animation>().Stop();
-					return;
-				}
-				//transform.position.Set (transform.position.x,Terrain.activeTerrain.SampleHeight(transform.position),transform.position.z);
-	
-			mustWalkTimer -= Time.deltaTime;
-			if (mustWalkTimer < 0f)
-					mustWalkTimer = 0f;
-	
-				//if (!bDead) GetComponent<Rigidbody>().AddForce(GetComponent<Rigidbody>().mass * Vector3.down);
-	
-	
+        // Only allow its damage actuator to be live if it's attacking
+		if (inflictsDamage)
+			damageAct.enabled = (state == FSMState.FSM_ATTACK);
 
-				// Rotate toward the angle they're supposed to be looking at
-				//Quaternion.Angle(transform.rotation,targetAngle)
-				//if (Mathf.Abs (Mathf.DeltaAngle(transform.rotation.eulerAngles.y,targetAngle.eulerAngles.y)) > 6.0f)
-				//if (Mathf.Abs(transform.rotation.eulerAngles.y-targetAngle.y)>5f)
-
-		currAngle = Quaternion.Slerp (currAngle, targetAngle, Time.deltaTime*3f);//4f*Time.deltaTime);//Time.deltaTime * (2f - Quaternion.Angle (transform.rotation, targetAngle) / 120));
-			//Quaternion.
-			if (bVisible && (thePlayer.transform.position - transform.position).magnitude < 400)
-			{	
-					//	transform.Rotate (0f, 180f, 0f);
+        // If the player is too far away, don't animate (to speed up performance)
+		if (playerDistance () > updateDistanceThreshold) {
+				GetComponent<Animation>().Stop();
+				return;
 			}
-		//print (transform.rotation.eulerAngles.y - targetAngle.y);
-
-			//transform.rotation = Quaternion.Lerp(transform.rotation,targetAngle,Time.deltaTime * (2f - Quaternion.Angle(transform.rotation,targetAngle)/120));
-			//transform.rotation.eulerAngles.Set(0f,transform.eulerAngles.y,0f);
-			//transform.rotation.eulerAngles.z = 0f;
-
 	
-		//GetComponent<Rigidbody>().freezeRotation = true;
-	
+        // The time it must walk, e.g. if it's just been hit
+		mustWalkTimer -= Time.deltaTime;
+		if (mustWalkTimer < 0f)
+				mustWalkTimer = 0f;
+
+        // Calculate the dinosaur's rotation angle as a time-proportional movement from its current
+        // angle toward the angle it should be at
+		currAngle = Quaternion.Slerp (currAngle, targetAngle, Time.deltaTime*3f);//4f*Time.deltaTime);//Time.deltaTime * (2f - Quaternion.Angle (transform.rotation, targetAngle) / 120));
+
+	    // Update the timer that it uses to periodically scan its field of view for the player and act if it is time to scan
 		lookTimer += Time.deltaTime;
 		if (lookTimer > lookDelay) {
 			lookTimer = 0;
+            // If it's a predator, check to see if it can see the player
 			if (predator)
 				sense ();
 		
 		}
 		
+        // Make it dead if it needs to be
 		if (health < 0) {
 			state = FSMState.FSM_DEAD; 
 		}
 		
+        // Handle the different states' updates
 		switch (state) 
 		{
-		case (FSMState.FSM_CHASE):
-		{
-			updateChaseState();
-			break;
-		}
-		case (FSMState.FSM_PASSTIME):
-		{
+		    case (FSMState.FSM_CHASE):
+		    {
+			    updateChaseState();
+			    break;
+		    }
+		    case (FSMState.FSM_PASSTIME):
+		    {
 			
-			updateIdleState();
-			break;
-		}
-		case (FSMState.FSM_HUNT):
-		{
+			    updateIdleState();
+			    break;
+		    }
+		    case (FSMState.FSM_HUNT):
+		    {
 			
-			break;
-		}
-		case (FSMState.FSM_ATTACK):
-		{
-			updateAttackState();
-			break;
-		}
-		case (FSMState.FSM_FLEE): {
-			updateFleeState();
-			break;
+			    break;
+		    }
+		    case (FSMState.FSM_ATTACK):
+		    {
+			    updateAttackState();
+			    break;
+		    }
+		    case (FSMState.FSM_FLEE): {
+			    updateFleeState();
+			    break;
 			
-		}
-		case (FSMState.FSM_DEAD): 
-		{
-			if (!bDead) {
-				Physics.IgnoreLayerCollision(9,10,false);
-				GetComponent<Animation>().Play ("die");
-				bDead=true;
-				GetComponent<Rigidbody>().isKinematic = true;
-				GetComponent<Rigidbody>().freezeRotation = false;
-				//transform.Translate (0,.5f,0);
-			} else if (!GetComponent<Animation>().IsPlaying("die")) {
-				//GetComponent<Rigidbody>().mass = GetComponent<Rigidbody>().mass * GetComponent<Rigidbody>().mass;
-				GetComponent<Rigidbody>().isKinematic = false;
-				GetComponent<Rigidbody>().maxDepenetrationVelocity = 3.0f;
-				GetComponent<Rigidbody>().freezeRotation = false;
+		    }
+		    case (FSMState.FSM_DEAD): 
+		    {
+                // If it's dead, have it ignore relevant physics layers, play the death animation, and let it fall over
+			    if (!bDead) {
+				    Physics.IgnoreLayerCollision(9,10,false);
+				    GetComponent<Animation>().Play ("die");
+				    bDead=true;
+				    GetComponent<Rigidbody>().isKinematic = true;
+				    GetComponent<Rigidbody>().freezeRotation = false;
+				    //transform.Translate (0,.5f,0);
+			    } else if (!GetComponent<Animation>().IsPlaying("die")) {
+				    // Disable physics being able to affect the dinosaur and make sure it can't
+                    // "push" itself out of the ground fast if it has animated any part of itself into the ground
+				    GetComponent<Rigidbody>().isKinematic = false;
+				    GetComponent<Rigidbody>().maxDepenetrationVelocity = 3.0f;
 				
-			}
-			break;
-		}
+				
+			    }
+
+			    break;
+		    }
 			
 		}
 	}

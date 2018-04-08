@@ -50,15 +50,17 @@ public abstract class Weapon : MonoBehaviour {
 	public float alertDistance;
 	public bool enabled = false;
 
+
+
 	// ***** JUST THE ones for handling the double-tap shooting
 	const float doubleTapThreshold = 0.2f;
 	private static float lastTapTime = 0f;
 	private static float currTapTime = 0f;
 	private static bool tapped = false;
 	public static float touchTimer = 0f;
+    private float lastmx, lastmy;
 
-
-	public void disable() {
+    public void disable() {
 		currRecoil = 0f;
 		bulletsThisFrame = 0f;
 		gameObject.SetActive(false);
@@ -86,6 +88,8 @@ public abstract class Weapon : MonoBehaviour {
 		return (GetComponent<AudioSource> ().isPlaying && GetComponent<AudioSource> ().clip == clip);
 	}
 
+    // This handles if they're hitting the shooting button or tapping the 
+    // viewing area on the screen
 	protected bool isShootingInput() {
 
 		int shootingAxes;
@@ -115,8 +119,10 @@ public abstract class Weapon : MonoBehaviour {
 		
 		Vector3 point = ray.origin + (ray.direction * 10000f);
 
+        // Handle as many bullets as we are owed for the time its taken
 		while (Weapon.bulletsThisFrame >= 1.0f) {
 			flashtimer = 0.1f;
+            // Play the sound
 			if (!GetComponent<AudioSource> ().isPlaying)
 				GetComponent<AudioSource> ().Play ();
 			else {
@@ -129,6 +135,7 @@ public abstract class Weapon : MonoBehaviour {
 			if (Weapon.bulletsThisFrame < 0f)
 				Weapon.bulletsThisFrame = 0f;
 			
+            // Show the muzzleflash and rotate it
 			MuzzFlashText.GetComponent<Renderer> ().enabled = true;
 			MuzzFlashText.transform.eulerAngles = new Vector3 (MuzzFlashText.transform.eulerAngles.x, MuzzFlashText.transform.eulerAngles.y, Random.Range (0.0f, 360.0f));
 			
@@ -145,21 +152,25 @@ public abstract class Weapon : MonoBehaviour {
 		} else {
 			//bobOffsetCounter = 0f;
 		}
+        // Set the weapon bob
 		bobOffset = (bobAmplitude * Mathf.Sin (Mathf.PI * bobFrequency * bobOffsetCounter))/10f;
 
+        // Handle the recoil
 		currRecoil -= Time.deltaTime * 1.3f; //Random.Range (0.2f,0.25f);
 		if (currRecoil < 0)
 			currRecoil = 0;
+
+        // Set the muzzleflahs if it's still going off
 		flashtimer -= 3f * Time.deltaTime;
 		MuzzleFlash.GetComponent<Light> ().enabled = MuzzFlashText.GetComponent<Renderer> ().enabled;
 		if (flashtimer < 0) {
-			//MuzzleFlash.GetComponent<Light>().enabled = false;
 			MuzzFlashText.GetComponent<Renderer> ().enabled = false;
 		}
 		transform.localPosition = new Vector3(position3.x,position3.y+bobOffset,position3.z-currRecoil);
 		lastPosition = GameObject.FindGameObjectWithTag("Player").transform.position;
 	}
 
+    // Returns if the person is trying to shoot and is allowed to per game rules
 	protected bool isShooting() {
 		if (FireGun.health() < 1)
 			return false;
@@ -178,18 +189,21 @@ public abstract class Weapon : MonoBehaviour {
 		}
 	}
 
-	//public abstract void fireButton
+	// Fire the projectile as a physics item
 	protected virtual void fire (Vector3 point) {
+        // Create inaccuracy artificially
 		point.x += Random.Range (0-accuracySpread,accuracySpread)*inaccuracyMultiplier;
 		point.y += Random.Range (0-accuracySpread,accuracySpread)*inaccuracyMultiplier;
 		point.z += Random.Range (0-accuracySpread,accuracySpread)*inaccuracyMultiplier;
 
+        // Eject the shell if applicable
 		GameObject currShell = (GameObject)Instantiate(shellToEject,ejector.transform.position, Random.rotation);//Quaternion.identity);
 
 		currShell.GetComponent<Rigidbody>().AddForce(Random.Range (1.9f,2.4f)*(ejectVector.transform.position-ejector.transform.position));
 		
 		Destroy (currShell,5.0f);
 
+        // Fire the bullet and compute the recoil 
 		shootBullet (point);
 		--loadedRounds;
 		currRecoil += recoilOffset;//Random.Range (0.2f,0.3f);
@@ -197,7 +211,7 @@ public abstract class Weapon : MonoBehaviour {
 			currRecoil = maxRecoil-Random.Range (0.06f,0.095f);
 	}
 
-
+    // Determine if they're still reloading and set the applicable parameters
 	public bool stillReloading() {
 		if (GetComponent<AudioSource> ().clip == reloadSound && GetComponent<AudioSource> ().isPlaying) {
 			// Can't shoot--reloading
@@ -214,6 +228,7 @@ public abstract class Weapon : MonoBehaviour {
 		}
 	}
 
+    // Play the dry fire sound if needed
 	protected virtual void handleDryFiring() {
 		if (bulletsThisFrame == -1f)
 			bulletsThisFrame = 1f;
@@ -256,14 +271,9 @@ public abstract class Weapon : MonoBehaviour {
 
 	}
 
-	//const doubleTapThreshold = 0.15f;
-	//private lastTapTime = 0f;
-	//private currTapTime = 0f;
-	private float lastmx, lastmy;
-	
 
 
-
+    // A function to track time between lookpad touches
 	public static void lookPadTouched() {
 		lastTapTime = currTapTime;
 		currTapTime = Time.time;
@@ -273,7 +283,7 @@ public abstract class Weapon : MonoBehaviour {
 	 void FixedUpdate () {
 
 	
-
+        // Determine if a double tapp has happened
 		if ((currTapTime - lastTapTime) < doubleTapThreshold && touchTimer > 0f) {
 			tapped = true;
 		} else {

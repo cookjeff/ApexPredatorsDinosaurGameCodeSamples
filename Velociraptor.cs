@@ -34,6 +34,7 @@ public class Velociraptor : Dinosaur {
 		return pack;
 	}
 	
+    // Chase the player and call nearby dinosaurs to attack as well
 	public override void justGotHit ()
 	{
 		focusCreature = GameObject.FindGameObjectWithTag("Player");

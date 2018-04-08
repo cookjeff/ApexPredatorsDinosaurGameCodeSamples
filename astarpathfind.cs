@@ -40,36 +40,24 @@ public class astarpathfind : MonoBehaviour {
 		public Vector3 position;
 		public GameObject marker;
 
-		//public Node() {
-		//	this.estimatedCost = 0.0f;
-		//	this.nodeTotalCost = 1.0f;
-		//	this.bObstacle = false;
-		//	this.parent = null;
-		//	//marker = (GameObject)Instantiate(nodeMarker,new Vector3(10f,10f,10f),Quaternion.identity);
-		//marker.SetActive(false);
-
-		//}
+        // The nodes for our grid
 		public Node(Vector3 pos) {
 			this.estimatedCost = 0.0f;
 			this.nodeTotalCost = 1.0f;
 			this.bObstacle = false;
 			this.parent = null;
 			this.position = pos;
-			//marker = (GameObject)Instantiate(nodeMarker,pos,Quaternion.identity);
-			//marker.SetActive(false);
-
 
 		}
 
+        // Mark a node as obstacle
 		public void MarkAsObstacle() {
 			markedobs++;
 			bObstacle = true;
-			//Destroy (marker);
-			//marker.GetComponent<Renderer> ().enabled = false;
-			//marker.SetActive (false);
 
 		}
 
+        // Compare the estimated cost to another node's
 		public int CompareTo(object obj) {
 			Node node = (Node)obj;
 			if (this.estimatedCost < node.estimatedCost) {
@@ -83,20 +71,7 @@ public class astarpathfind : MonoBehaviour {
 	}
 
 	public static class GridManager : System.Object {
-		// Singleton as fuck
-		/*		private static GridManager s_instance;
 
-		public static GridManager instance {
-			get {
-				if (s_instance == null) {
-					s_instance = new GridManager();
-					if (s_instance == null) 	
-						Debug.LogError ("Could not locate a gridmanager object");
-				}
-				return s_instance;
-			}
-		}
-	*/	
 		public static int numRows;
 		public static int numCols;
 		public static float gridCellSize;
@@ -127,6 +102,7 @@ public class astarpathfind : MonoBehaviour {
 			return (row >= 0 && row < numRows && col >= 0 && col < numCols && !nodes[row, col].bObstacle);
 		}
 
+        // Get and track the neighbor nodes
 		public static void getNeighborNodes(Node node, List<Node> neighbors, int skip) {
 			int row = getRow(GetGridIndex(node.position));
 			int col = getColumn(GetGridIndex (node.position));
@@ -170,6 +146,7 @@ public class astarpathfind : MonoBehaviour {
 
 		}
 
+        // Determine which cells rae blocked by trees, etc.
 		static void CalculateObstacles() {
 			// Create the matrix of nodes and populate it
 			nodes = new Node[numCols,numRows];
@@ -228,24 +205,26 @@ public class astarpathfind : MonoBehaviour {
 					postcheck++;
 			print (postcheck + "obstacles remain from iterative count");
 
-			// Go ahead and block the fuck out of other obstacles 
-
-
 		}
 
+        // Get the nearest node to an arbitrary position
 		public static Node GetNearestNode(Vector3 pos) {
 			int index = GetGridIndex(pos);
 			return nodes[getRow(index),getColumn (index)];
 		}
 
+        // Get the row of a 1D index
 		public static int getRow (int index ){
 			int row = index / numCols;
 			return row;
 		}
+        // Get the column of a 1D index
 		public static int getColumn (int index) {
 			int col = index % numCols;
 			return col;
 		}
+
+        // Get the position of a grid cell including calculating its height
 		public static Vector3 GetGridCellPosition(int index) {
 			int col = index%numCols;
 			int row = index/numCols;
@@ -254,6 +233,7 @@ public class astarpathfind : MonoBehaviour {
 			return posWithHeight;
 		}
 
+        // Get the center of a grid cell
 		public static Vector3 GetGridCellCenter(int index) {
 			Vector3 cellPosition = GetGridCellPosition(index);
 			cellPosition.x += (gridCellSize / 2.0f);
@@ -261,6 +241,7 @@ public class astarpathfind : MonoBehaviour {
 			return cellPosition;
 		}
 
+        // Get the 1D index of a position
 		public static int GetGridIndex (Vector3 pos) {
 			int col = (int)(pos.x/gridCellSize);
 			int row = (int)(pos.z/gridCellSize);
@@ -269,30 +250,32 @@ public class astarpathfind : MonoBehaviour {
 		}
 
 	}
+
+    // Find a path from start to end without length limit
 	public static List<astarpathfind.Node> findPath(Vector3 start, Vector3 end) {
 		return findPath (start, end, 50, null);
 	}
+
+    // Find a path specifying the lenght limit and the last path
 	public static List<astarpathfind.Node> findPath(Vector3 start, Vector3 end, int limit, List<Node> lastPath) {
 		astarcalls++;
 		print (astarcalls);
 
-
-			
-
-
 		Node startNode = GridManager.GetNearestNode(start);
 		Node endNode = GridManager.GetNearestNode(end);
-		//List<Node> nodepath = 
-		return findPath(startNode,endNode,limit,lastPath);	
+		return findPath(startNode,endNode,limit,lastPath);
 
-		//List<astarpathfind.Node> returner = new List<astarpathfind.Node> ();
-
-		//for (int i = 0; i < nodepath.Count; i++)
-		//	returner.Add (nodepath [i]);
-
-		//return returner;
 	}
 
+    /// <summary>
+    /// Perform a tweaked A* search to satisfy pathfinding need
+    /// </summary>
+    /// <param name="start">start position</param>
+    /// <param name="goal">goal position</param>
+    /// <param name="limit">the longest path we can return</param>
+    /// <param name="lastPath">the last path returned so we can avoid returning identical/nearly identical paths by
+    /// not reusing nodes from the last search</param>
+    /// <returns>A list of nodes in order that form the shortest path from start to goal</returns>
 	public static List<Node>  findPath(Node start, Node goal, int limit, List<Node> lastPath) {
 
 		if (cooldown > 0)
@@ -303,10 +286,9 @@ public class astarpathfind : MonoBehaviour {
 		}
 
 
+        // Initialization and creating open and closed lists
 		List<Node>  openList = new List<Node>();
-		//print ("echo 2");
 		openList.Add (start);
-		//start.marker.SetActive(true);
 		start.nodeTotalCost = 0.0f;
 		start.estimatedCost = (start.position - goal.position).magnitude;
 		List<Node> closedList = new List<Node>();
@@ -314,20 +296,19 @@ public class astarpathfind : MonoBehaviour {
 		Node node = null;
 
 
-		//foreach (Node dpNode in GridManager.nodes) {
-		//	dpNode.parent = null;
-		//}
 		GridManager.getNeighborNodes (start, openList, 0);
 
+        // While we are still exploring in the open list
 		while (openList.Count!=0) {
-			//openList.Sort ();
+
+            // Get the node with the least estimated cost
 			node = (Node)openList[0];
 			for (int i = 0; i < openList.Count; i++) {
 				if (((Node)openList[i]).estimatedCost < node.estimatedCost)
 					node = (Node)openList[i];
 			}
-			//print ("openlist size " + openList.Count );
 
+            // For counting the steps/distance in nodes from origin
 			int steps = 0;
 			Node stepCounter = node;
 			while (stepCounter!=null) {
@@ -336,7 +317,7 @@ public class astarpathfind : MonoBehaviour {
 
 			}
 			bool bGoal = false;
-			//			print (node.position);
+			
 			// See if the current node is our goal
 			if (node.position == goal.position || steps > limit) {
 				// we're done, get and return the path
@@ -350,7 +331,8 @@ public class astarpathfind : MonoBehaviour {
 				path.Reverse();
 				bGoal = true;
 			} 
-
+            // If we are done, we need to reset the parents in each node to empty
+            // to make this instance reusable
 			if (bGoal) {
 				foreach (Node dpNode in path)
 					dpNode.parent = null;
@@ -361,14 +343,22 @@ public class astarpathfind : MonoBehaviour {
 
 				return path;
 			}
+
+
 			if (lastPath==null)
 				lastPath = new List<Node>();
+
+            // Get the neighbors
 			List<Node> neighbors = new List<Node>();
 			GridManager.getNeighborNodes (node,neighbors,0);
+
+            // Go through all the neighbors - this is wher classic A* is
 			for (int i = 0; i < neighbors.Count; i++ ) {
 				Node neighborNode = (Node)neighbors[i];
+                // If the neighbor is one of the already-explored ones this will not execute
 				if (!closedList.Contains (neighborNode) && !lastPath.Contains(neighborNode)) {
 
+                    // Get the total cost so far and estimated cost
 					float cost = (node.position - neighborNode.position).magnitude;
 					float totalCost = node.nodeTotalCost + cost;
 					float neighborNodeEstCost = (neighborNode.position - goal.position).magnitude;
@@ -377,6 +367,7 @@ public class astarpathfind : MonoBehaviour {
 					neighborNode.parent = node;
 					neighborNode.estimatedCost = totalCost + neighborNodeEstCost;
 
+                    // Add the neighbor to the open list and continue the search
 					if (!openList.Contains(neighborNode)) {
 						//print ("echo 4");
 						if (!neighborNode.bObstacle)
@@ -390,11 +381,13 @@ public class astarpathfind : MonoBehaviour {
 			//openList.Sort();
 			//print ("echo 5");
 
+            // Move this from the open list to the closed list
 			closedList.Add (node);
 			openList.Remove (node);
 
 		}
 
+        // Return a null path if the goal was not found
 		if (node.position != goal.position) {
 			//Debug.LogError ("Goal not found!");
 			return null;
